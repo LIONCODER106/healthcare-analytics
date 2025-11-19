@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Healthcare Analytics Application
+  app:
+    build: .
+    container_name: healthcare-analytics
+    ports:
+      - "8501:8501"
+    environment:
+      - DB_TYPE=mysql
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=healthcare_db
+      - MYSQL_USER=healthcare_user
+      - MYSQL_PASSWORD=secure_password_change_me
+      - SECRET_KEY=change-this-to-random-string-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - healthcare-network
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: healthcare-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_change_me
+      MYSQL_DATABASE: healthcare_db
+      MYSQL_USER: healthcare_user
+      MYSQL_PASSWORD: secure_password_change_me
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d  # For initialization scripts
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "healthcare_user", "-psecure_password_change_me"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: phpMyAdmin for database management
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: healthcare-phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root_password_change_me
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - healthcare-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  healthcare-network:
+    driver: bridge

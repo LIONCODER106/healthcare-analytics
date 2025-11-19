@@ -1,0 +1,29 @@
+# Core Framework
+streamlit>=1.45.1
+
+# Data Processing
+pandas>=2.3.0
+numpy>=2.3.0
+openpyxl>=3.1.5
+xlrd>=2.0.2
+
+# Database Support
+sqlalchemy>=2.0.44
+
+# MySQL Support (for cPanel)
+PyMySQL>=1.1.0
+cryptography>=41.0.0
+
+# PostgreSQL Support (for cloud hosting)
+psycopg2-binary>=2.9.11
+
+# Authentication & Security
+bcrypt>=5.0.0
+
+# Additional utilities
+python-dotenv>=1.0.0
+typing-extensions>=4.8.0
+
+# Optional: For better performance
+# gunicorn>=21.2.0  # If using WSGI deployment
+# gevent>=23.9.0    # For async support
