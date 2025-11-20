@@ -279,7 +279,22 @@ def test_connection():
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
         return False
+def close_db(db=None):
+    """Close database session"""
+    if db is not None:
+        db.close()
 
+
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    import bcrypt
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify a password against a hash"""
+    import bcrypt
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 if __name__ == "__main__":
     # Test configuration and connection
