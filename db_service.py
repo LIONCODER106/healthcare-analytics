@@ -4,7 +4,10 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from database import ServiceType, Client, ClientServiceConfig, PeriodOverride, ConfigHistory, ManualEntry, User, get_db, close_db, hash_password, verify_password
+from database import (
+    SessionLocal, ServiceType, Client, ClientServiceConfig, 
+    PeriodOverride, ConfigHistory, ManualEntry, User
+)
 
 class DatabaseService:
     """Service layer for database operations"""
@@ -15,13 +18,13 @@ class DatabaseService:
     def get_session(self) -> Session:
         """Get or create database session"""
         if not self.db:
-            self.db = get_db()
+            self.db = SessionLocal()
         return self.db
     
     def close_session(self):
         """Close database session"""
         if self.db:
-            close_db(self.db)
+            self.db.close()
             self.db = None
     
     # ===== SERVICE TYPE OPERATIONS =====
@@ -254,8 +257,9 @@ class DatabaseService:
     
     # ===== MANUAL ENTRY OPERATIONS =====
     
-    def create_manual_entry(self, client_name: str, caregiver_name: str, service_type: str,
-                           visit_count: int, start_date: str, end_date: str, notes: str = None) -> ManualEntry:
+    def create_manual_entry(self, client_name: str, caregiver_name: str, 
+                           service_date: datetime, service_type: str,
+                           hours: float, notes: str = None) -> ManualEntry:
         """Create a new manual entry and ensure client exists in Client table"""
         db = self.get_session()
         
@@ -268,10 +272,9 @@ class DatabaseService:
         entry = ManualEntry(
             client_name=client_name,
             caregiver_name=caregiver_name,
+            service_date=service_date,
             service_type=service_type,
-            visit_count=visit_count,
-            start_date=start_date,
-            end_date=end_date,
+            hours=hours,
             notes=notes
         )
         db.add(entry)
@@ -282,7 +285,7 @@ class DatabaseService:
     def get_all_manual_entries(self) -> List[ManualEntry]:
         """Get all manual entries"""
         db = self.get_session()
-        return db.query(ManualEntry).order_by(ManualEntry.created_at.desc()).all()
+        return db.query(ManualEntry).order_by(ManualEntry.entry_date.desc()).all()
     
     def get_manual_entries_by_client(self, client_name: str) -> List[ManualEntry]:
         """Get manual entries for a specific client"""
@@ -307,19 +310,32 @@ class DatabaseService:
     
     def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authenticate user with username and password"""
-        db = self.get_session()
-        user = db.query(User).filter(User.username == username).first()
-        
-        if user and user.is_active:
-            if verify_password(password, user.password_hash):
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            
+            if not user:
+                return None
+            
+            if not user.is_active:
+                return None
+            
+            if user.check_password(password):
                 # Update last login time
                 user.last_login = datetime.utcnow()
                 db.commit()
                 return user
-        return None
+            
+            return None
+        except Exception as e:
+            print(f"Authentication error: {e}")
+            db.rollback()
+            return None
+        finally:
+            db.close()
     
-    def create_user(self, username: str, password: str, full_name: str = None, 
-                   role: str = 'user') -> User:
+    def create_user(self, username: str, password: str, email: str = None,
+                   full_name: str = None, is_admin: bool = False) -> User:
         """Create a new user"""
         db = self.get_session()
         
@@ -330,53 +346,32 @@ class DatabaseService:
         
         user = User(
             username=username,
-            password_hash=hash_password(password),
+            email=email,
             full_name=full_name,
-            role=role
+            is_admin=is_admin
         )
+        user.set_password(password)
         db.add(user)
         db.commit()
         db.refresh(user)
         return user
-    
-   class DatabaseService:
-    # ... other methods ...
-    
-    def authenticate_user(self, username: str, password: str):  
-        """Authenticate user"""  
-        from database import SessionLocal, User  # ← 8 spaces
-        
-        db = SessionLocal()  # ← 8 spaces
-        try:  # ← 8 spaces
-            user = db.query(User).filter(User.username == username).first()
-        
-        if not user:
-            return None
-            
-        if not user.is_active:
-            return None
-            
-        if user.check_password(password):
-            # Update last login
-            user.last_login = datetime.utcnow()
-            db.commit()
-            return user
-        
-        return None
-    finally:
-        db.close()
     
     def get_all_users(self) -> List[User]:
         """Get all users"""
         db = self.get_session()
         return db.query(User).order_by(User.username).all()
     
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        """Get user by username"""
+        db = self.get_session()
+        return db.query(User).filter(User.username == username).first()
+    
     def update_user_password(self, username: str, new_password: str) -> bool:
         """Update user password"""
         db = self.get_session()
         user = db.query(User).filter(User.username == username).first()
         if user:
-            user.password_hash = hash_password(new_password)
+            user.set_password(new_password)
             db.commit()
             return True
         return False
@@ -387,6 +382,16 @@ class DatabaseService:
         user = db.query(User).filter(User.username == username).first()
         if user:
             user.is_active = False
+            db.commit()
+            return True
+        return False
+    
+    def activate_user(self, username: str) -> bool:
+        """Activate a user"""
+        db = self.get_session()
+        user = db.query(User).filter(User.username == username).first()
+        if user:
+            user.is_active = True
             db.commit()
             return True
         return False
