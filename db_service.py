@@ -339,10 +339,28 @@ class DatabaseService:
         db.refresh(user)
         return user
     
-    def get_user_by_username(self, username: str) -> Optional[User]:
-        """Get user by username"""
-        db = self.get_session()
-        return db.query(User).filter(User.username == username).first()
+   def authenticate_user(self, username: str, password: str):
+    """Authenticate user"""
+    from database import SessionLocal, User
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        
+        if not user:
+            return None
+            
+        if not user.is_active:
+            return None
+            
+        if user.check_password(password):
+            # Update last login
+            user.last_login = datetime.utcnow()
+            db.commit()
+            return user
+        
+        return None
+    finally:
+        db.close()
     
     def get_all_users(self) -> List[User]:
         """Get all users"""
