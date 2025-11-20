@@ -334,27 +334,40 @@ class DatabaseService:
         finally:
             db.close()
     
-    def create_user(self, username: str, password: str, email: str = None,
-                   full_name: str = None, is_admin: bool = False) -> User:
-        """Create a new user"""
-        db = self.get_session()
+   def authenticate_user(self, username: str, password: str) -> Optional[User]:
+        """Authenticate user with username and password"""
+        from database import SessionLocal, User
         
-        # Check if user already exists
-        existing = db.query(User).filter(User.username == username).first()
-        if existing:
-            raise ValueError(f"User '{username}' already exists")
-        
-        user = User(
-            username=username,
-            email=email,
-            full_name=full_name,
-            is_admin=is_admin
-        )
-        user.set_password(password)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            
+            if not user:
+                return None
+            
+            if not user.is_active:
+                return None
+            
+            if user.check_password(password):
+                # Update last login time
+                user.last_login = datetime.utcnow()
+                db.commit()
+                db.refresh(user)
+                
+                # CRITICAL FIX: Expunge user from session before closing
+                # This makes the object "detached" so it can be used after session closes
+                db.expunge(user)
+                
+                return user
+            
+            return None
+            
+        except Exception as e:
+            print(f"Authentication error: {e}")
+            db.rollback()
+            return None
+        finally:
+            db.close()
     
     def get_all_users(self) -> List[User]:
         """Get all users"""
