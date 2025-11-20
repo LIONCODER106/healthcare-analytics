@@ -339,12 +339,16 @@ class DatabaseService:
         db.refresh(user)
         return user
     
-   def authenticate_user(self, username: str, password: str):
-    """Authenticate user"""
-    from database import SessionLocal, User
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.username == username).first()
+   class DatabaseService:
+    # ... other methods ...
+    
+    def authenticate_user(self, username: str, password: str):  
+        """Authenticate user"""  
+        from database import SessionLocal, User  # ← 8 spaces
+        
+        db = SessionLocal()  # ← 8 spaces
+        try:  # ← 8 spaces
+            user = db.query(User).filter(User.username == username).first()
         
         if not user:
             return None
