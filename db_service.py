@@ -310,32 +310,6 @@ class DatabaseService:
     
     def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authenticate user with username and password"""
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(User.username == username).first()
-            
-            if not user:
-                return None
-            
-            if not user.is_active:
-                return None
-            
-            if user.check_password(password):
-                # Update last login time
-                user.last_login = datetime.utcnow()
-                db.commit()
-                return user
-            
-            return None
-        except Exception as e:
-            print(f"Authentication error: {e}")
-            db.rollback()
-            return None
-        finally:
-            db.close()
-    
-   def authenticate_user(self, username: str, password: str) -> Optional[User]:
-        """Authenticate user with username and password"""
         from database import SessionLocal, User
         
         db = SessionLocal()
@@ -354,8 +328,7 @@ class DatabaseService:
                 db.commit()
                 db.refresh(user)
                 
-                # CRITICAL FIX: Expunge user from session before closing
-                # This makes the object "detached" so it can be used after session closes
+                # Expunge user from session before closing; detach it
                 db.expunge(user)
                 
                 return user
@@ -395,16 +368,6 @@ class DatabaseService:
         user = db.query(User).filter(User.username == username).first()
         if user:
             user.is_active = False
-            db.commit()
-            return True
-        return False
-    
-    def activate_user(self, username: str) -> bool:
-        """Activate a user"""
-        db = self.get_session()
-        user = db.query(User).filter(User.username == username).first()
-        if user:
-            user.is_active = True
             db.commit()
             return True
         return False
