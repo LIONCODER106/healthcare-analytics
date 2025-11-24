@@ -916,15 +916,7 @@ def show_login_page():
                             st.error("❌ Invalid username or password")
                 else:
                     st.warning("⚠️ Please enter both username and password")
-            
-            st.write("")  # Spacing
-            st.markdown("""
-                <div style='text-align: center; color: #6B7280; font-size: 0.9rem; margin-top: 2rem;'>
-                    <p>Default credentials:</p>
-                    <p><strong>Username:</strong> Billingpro</p>
-                    <p><strong>Password:</strong> Guard2026!</p>
-                </div>
-            """, unsafe_allow_html=True)
+        
 
 # Check if user is logged in
 if not st.session_state.logged_in:
