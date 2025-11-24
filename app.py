@@ -860,48 +860,71 @@ def show_export_loading():
     )
 
 def show_login_page():
-    """Display login page"""
+    """Display the login page"""
     st.markdown("""
-    <div style="text-align: center; padding: 2rem;">
-        <h1 style="color: #6C63FF; font-size: 3rem;">🏥</h1>
-        <h2 style="color: #4A5568;">Home Healthcare Analytics</h2>
-        <p style="color: #6B7280;">Please log in to continue</p>
-    </div>
+        <div style='text-align: center; padding: 2rem 0;'>
+            <h1 style='color: #4A5568; font-size: 2.5rem; margin-bottom: 0.5rem;'>
+                Home Healthcare Analytics
+            </h1>
+            <p style='color: #6B7280; font-size: 1.1rem;'>
+                Please log in to continue
+            </p>
+        </div>
     """, unsafe_allow_html=True)
     
+    # Center the login form
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown('<div class="neumorphic-card">', unsafe_allow_html=True)
-        
-        with st.form("login_form"):
+        with st.container():
             st.markdown("### 🔐 Login")
-            username = st.text_input("Username", placeholder="Enter your username")
-            password = st.text_input("Password", type="password", placeholder="Enter your password")
-            submit_button = st.form_submit_button("Login", type="primary", use_container_width=True)
             
-            if submit_button:
+            # Login form
+            username = st.text_input(
+                "Username",
+                placeholder="Enter your username",
+                key="login_username"
+            )
+            
+            password = st.text_input(
+                "Password",
+                type="password",
+                placeholder="Enter your password",
+                key="login_password"
+            )
+            
+            st.write("")  # Spacing
+            
+            if st.button("🔐 Login", use_container_width=True):
                 if username and password:
-                    db_service = st.session_state.db_service
-                    user = db_service.authenticate_user(username, password)
-                    
-                    if user:
-                        st.session_state.logged_in = True
-                       st.session_state.current_user = {
-    'username': user.username,
-    'role': 'admin' if user.is_admin else 'user',
-    'is_admin': user.is_admin,
-    'full_name': user.full_name
-}
-                        st.success(f"Welcome, {user.full_name or user.username}!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password")
+                    with st.spinner("Authenticating..."):
+                        db_service = st.session_state.db_service
+                        user = db_service.authenticate_user(username, password)
+                        
+                        if user:
+                            st.session_state.logged_in = True
+                            st.session_state.current_user = {
+                                'username': user.username,
+                                'role': 'admin' if user.is_admin else 'user',
+                                'is_admin': user.is_admin,
+                                'full_name': user.full_name if user.full_name else user.username
+                            }
+                            st.success("✅ Login successful!")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("❌ Invalid username or password")
                 else:
-                    st.warning("Please enter both username and password")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+                    st.warning("⚠️ Please enter both username and password")
+            
+            st.write("")  # Spacing
+            st.markdown("""
+                <div style='text-align: center; color: #6B7280; font-size: 0.9rem; margin-top: 2rem;'>
+                    <p>Default credentials:</p>
+                    <p><strong>Username:</strong> Billingpro</p>
+                    <p><strong>Password:</strong> Guard2026!</p>
+                </div>
+            """, unsafe_allow_html=True)
 
 # Check if user is logged in
 if not st.session_state.logged_in:
