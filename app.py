@@ -887,11 +887,12 @@ def show_login_page():
                     
                     if user:
                         st.session_state.logged_in = True
-                        st.session_state.current_user = {
-                            'username': user.username,
-                            'full_name': user.full_name,
-                            'role': user.role
-                        }
+                       st.session_state.current_user = {
+    'username': user.username,
+    'role': 'admin' if user.is_admin else 'user',
+    'is_admin': user.is_admin,
+    'full_name': user.full_name
+}
                         st.success(f"Welcome, {user.full_name or user.username}!")
                         time.sleep(1)
                         st.rerun()
