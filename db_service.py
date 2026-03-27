@@ -1,9 +1,12 @@
 """Database service layer for managing service types and client configurations"""
 import json
+import logging
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+
+logger = logging.getLogger(__name__)
 from database import (
     SessionLocal, ServiceType, Client, ClientServiceConfig, 
     PeriodOverride, ConfigHistory, ManualEntry, User
@@ -249,11 +252,11 @@ class DatabaseService:
                             unit_type=config.get('unit', 'hour')
                         )
                     except Exception as e:
-                        print(f"Error migrating {client_name} - {service_name}: {e}")
+                        logger.error("Error migrating %s - %s: %s", client_name, service_name, e)
         except FileNotFoundError:
-            print(f"JSON file not found: {json_file_path}")
+            logger.error("JSON file not found: %s", json_file_path)
         except Exception as e:
-            print(f"Error during migration: {e}")
+            logger.error("Error during migration: %s", e)
     
     # ===== MANUAL ENTRY OPERATIONS =====
     
@@ -310,8 +313,6 @@ class DatabaseService:
     
     def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authenticate user with username and password"""
-        from database import SessionLocal, User
-        
         db = SessionLocal()
         try:
             user = db.query(User).filter(User.username == username).first()
@@ -336,7 +337,7 @@ class DatabaseService:
             return None
             
         except Exception as e:
-            print(f"Authentication error: {e}")
+            logger.error("Authentication error: %s", e)
             db.rollback()
             return None
         finally:

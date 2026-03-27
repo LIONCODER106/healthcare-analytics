@@ -2,21 +2,23 @@
 Database models and connection management
 Supports MySQL, PostgreSQL, and SQLite
 """
+import logging
 import os
 import bcrypt
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 from config import Config
 
+logger = logging.getLogger(__name__)
+
 # Get database URL from config
 try:
     DATABASE_URL = Config.get_database_url()
-    print(f"✅ Database configured: {Config.DATABASE_TYPE}")
+    logger.info("Database configured: %s", Config.DATABASE_TYPE)
 except Exception as e:
-    print(f"❌ Database configuration error: {e}")
-    print("Falling back to SQLite for development...")
+    logger.warning("Database configuration error: %s — falling back to SQLite", e)
     DATABASE_URL = "sqlite:///healthcare_fallback.db"
 
 # Create engine with appropriate settings
@@ -181,20 +183,20 @@ class User(Base):
 def init_db():
     """Initialize database tables and create default data"""
     try:
-        print("🔧 Initializing database...")
-        
+        logger.info("Initializing database...")
+
         # Create all tables
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created")
-        
+        logger.info("Database tables created")
+
         # Create session
         db = SessionLocal()
-        
+
         try:
             # Check if default user exists
             existing_user = db.query(User).filter_by(username='Billingpro').first()
             if not existing_user:
-                print("👤 Creating default user...")
+                logger.info("Creating default user...")
                 default_user = User(
                     username='Billingpro',
                     email='admin@healthcare.local',
@@ -205,12 +207,12 @@ def init_db():
                 default_user.set_password('Guard2026!')
                 db.add(default_user)
                 db.commit()
-                print("✅ Default user created (Username: Billingpro, Password: Guard2026!)")
-            
+                logger.info("Default user created (Username: Billingpro)")
+
             # Check if default service types exist
             existing_services = db.query(ServiceType).count()
             if existing_services == 0:
-                print("🏥 Creating default service types...")
+                logger.info("Creating default service types...")
                 default_services = [
                     ServiceType(
                         name='Home Health - Nursing',
@@ -243,19 +245,19 @@ def init_db():
                 ]
                 db.add_all(default_services)
                 db.commit()
-                print("✅ Default service types created")
-            
-            print("✅ Database initialization complete!")
-            
+                logger.info("Default service types created")
+
+            logger.info("Database initialization complete")
+
         except Exception as e:
             db.rollback()
-            print(f"❌ Error during data initialization: {e}")
+            logger.error("Error during data initialization: %s", e)
             raise
         finally:
             db.close()
-            
+
     except Exception as e:
-        print(f"❌ Database initialization failed: {e}")
+        logger.error("Database initialization failed: %s", e)
         raise
 
 
@@ -272,12 +274,12 @@ def test_connection():
     """Test database connection"""
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
-        print("✅ Database connection successful")
+        logger.info("Database connection successful")
         return True
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        logger.error("Database connection failed: %s", e)
         return False
 def close_db(db=None):
     """Close database session"""

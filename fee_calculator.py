@@ -1,7 +1,10 @@
 import pandas as pd
 import json
+import logging
 import os
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 class FeeCalculator:
     """Handles service fee configuration and calculation."""
@@ -60,8 +63,8 @@ class FeeCalculator:
         try:
             with open(self.rates_file, 'w') as f:
                 json.dump(self.service_rates, f, indent=2)
-        except IOError:
-            pass  # Silently fail if unable to save
+        except IOError as e:
+            logger.warning("Failed to save service rates to %s: %s", self.rates_file, e)
     
     def get_service_rates(self) -> Dict[str, float]:
         """Get current service rates."""

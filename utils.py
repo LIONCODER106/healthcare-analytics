@@ -28,7 +28,9 @@ def truncate_string(text: str, max_length: int = 50, suffix: str = "...") -> str
         return text
     return text[:max_length - len(suffix)] + suffix
 
-def validate_file_type(filename: str, allowed_extensions: list = ['.csv', '.xlsm', '.xlsx']) -> bool:
+def validate_file_type(filename: str, allowed_extensions: list = None) -> bool:
+    if allowed_extensions is None:
+        allowed_extensions = ['.csv', '.xlsm', '.xlsx']
     """Validate if a file has an allowed extension."""
     return any(filename.lower().endswith(ext) for ext in allowed_extensions)
 

@@ -1,9 +1,21 @@
+import logging
 import streamlit as st
 import pandas as pd
 import json
 import os
 import time
 from datetime import datetime, date
+
+# Configure logging once at startup
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("healthcare_app.log", encoding="utf-8"),
+    ],
+)
+logger = logging.getLogger(__name__)
 
 # MUST be first Streamlit command
 st.set_page_config(
@@ -52,6 +64,8 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'current_user' not in st.session_state:
     st.session_state.current_user = None
+if 'login_time' not in st.session_state:
+    st.session_state.login_time = None
 
 # Comprehensive Neumorphism UI Design System
 st.markdown("""
@@ -903,12 +917,14 @@ def show_login_page():
                         
                         if user:
                             st.session_state.logged_in = True
+                            st.session_state.login_time = datetime.utcnow()
                             st.session_state.current_user = {
                                 'username': user.username,
                                 'role': 'admin' if user.is_admin else 'user',
                                 'is_admin': user.is_admin,
                                 'full_name': user.full_name if user.full_name else user.username
                             }
+                            logger.info("User '%s' logged in", user.username)
                             st.success("✅ Login successful!")
                             time.sleep(0.5)
                             st.rerun()
@@ -917,6 +933,18 @@ def show_login_page():
                 else:
                     st.warning("⚠️ Please enter both username and password")
         
+
+# Enforce session timeout
+if st.session_state.logged_in and st.session_state.login_time is not None:
+    elapsed_minutes = (datetime.utcnow() - st.session_state.login_time).total_seconds() / 60
+    if elapsed_minutes > Config.SESSION_TIMEOUT_MINUTES:
+        username = (st.session_state.current_user or {}).get('username', 'unknown')
+        logger.info("Session expired for user '%s' after %.1f minutes", username, elapsed_minutes)
+        st.session_state.logged_in = False
+        st.session_state.current_user = None
+        st.session_state.login_time = None
+        st.warning("⏰ Your session has expired. Please log in again.")
+        st.rerun()
 
 # Check if user is logged in
 if not st.session_state.logged_in:
@@ -937,7 +965,7 @@ if st.session_state.current_user:
 
 page = st.sidebar.selectbox(
     "Select a page:",
-    ["Data Analysis", "Reports", "Billing", "Client Service Configuration", "Service Type Management", "Service Fee Configuration", "Manual Entry", "Historical Records", "Export Data", "Animation Demo"]
+    ["Data Analysis", "Reports", "Billing", "Client Service Configuration", "Service Type Management", "Service Fee Configuration", "Manual Entry", "Historical Records", "Export Data", "Animation Demo", "Change Password"]
 )
 
 # Logout button
@@ -3620,6 +3648,57 @@ elif page == "Animation Demo":
         - Consistent 2-second display duration
         - Professional healthcare aesthetic
         """)
+
+elif page == "Change Password":
+    st.header("🔑 Change Password")
+
+    current_user = st.session_state.current_user
+    if not current_user:
+        st.error("You must be logged in to change your password.")
+    else:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            with st.form("change_password_form"):
+                st.subheader(f"Change password for {current_user['full_name']}")
+
+                current_password = st.text_input(
+                    "Current Password",
+                    type="password",
+                    placeholder="Enter your current password"
+                )
+                new_password = st.text_input(
+                    "New Password",
+                    type="password",
+                    placeholder="Enter a new password (min 8 characters)"
+                )
+                confirm_password = st.text_input(
+                    "Confirm New Password",
+                    type="password",
+                    placeholder="Re-enter the new password"
+                )
+
+                submitted = st.form_submit_button("Update Password", type="primary", use_container_width=True)
+
+                if submitted:
+                    if not current_password or not new_password or not confirm_password:
+                        st.warning("⚠️ All fields are required.")
+                    elif len(new_password) < 8:
+                        st.error("❌ New password must be at least 8 characters.")
+                    elif new_password != confirm_password:
+                        st.error("❌ New passwords do not match.")
+                    else:
+                        db_service = st.session_state.db_service
+                        # Verify current password
+                        auth_user = db_service.authenticate_user(current_user['username'], current_password)
+                        if not auth_user:
+                            st.error("❌ Current password is incorrect.")
+                        else:
+                            success = db_service.update_user_password(current_user['username'], new_password)
+                            if success:
+                                logger.info("User '%s' changed their password", current_user['username'])
+                                st.success("✅ Password updated successfully!")
+                            else:
+                                st.error("❌ Failed to update password. Please try again.")
 
 # Footer
 st.markdown("---")
