@@ -1,5 +1,6 @@
 # Core Framework
 streamlit>=1.45.1
+flask>=2.3.0
 
 # Data Processing
 pandas>=2.3.0
