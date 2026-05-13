@@ -1,3 +1,12 @@
+# Vercel entry point - Flask wrapper for Streamlit
+from flask import Flask, redirect
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+        return redirect('https://share.streamlit.io')
+    
+# ---- Streamlit App below ----
 import streamlit as st
 import pandas as pd
 import json
