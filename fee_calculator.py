@@ -27,19 +27,12 @@ class FeeCalculator:
         new_rates = {}
         for service, rate in rates.items():
             if isinstance(rate, (int, float)):
-                # Old format - convert to new format
-                if "Home Health - Basic" in service:
-                    new_rates[service] = {
-                        "rate": float(rate),
-                        "billing_method": "hourly",
-                        "unit": "hour"
-                    }
-                else:
-                    new_rates[service] = {
-                        "rate": float(rate),
-                        "billing_method": "unit",
-                        "unit": "15min"
-                    }
+                # Old format: default to hourly since billing method is unknown
+                new_rates[service] = {
+                    "rate": float(rate),
+                    "billing_method": "hourly",
+                    "unit": "hour"
+                }
             else:
                 # Already new format
                 new_rates[service] = rate

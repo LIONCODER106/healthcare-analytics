@@ -26,7 +26,7 @@ from data_processor import DataProcessor
 from fee_calculator import FeeCalculator
 from data_storage import DataStorage
 from client_service_manager import ClientServiceManager
-from utils import export_to_csv, format_currency
+from utils import export_to_csv, format_currency, extract_service_rate
 from database import init_db
 from db_service import DatabaseService
 
@@ -1421,10 +1421,14 @@ elif page == "Reports":
                 if 'batch_results' in st.session_state and st.session_state.batch_results:
                     # Group by source file for timeline
                     timeline_summary = []
+                    has_source_col = 'source_file' in client_timeline_data.columns
                     for file_result in st.session_state.batch_results:
                         filename = file_result['filename']
-                        file_client_data = client_timeline_data[client_timeline_data.get('source_file', '') == filename]
-                        
+                        if has_source_col:
+                            file_client_data = client_timeline_data[client_timeline_data['source_file'] == filename]
+                        else:
+                            file_client_data = pd.DataFrame()
+
                         if not file_client_data.empty:
                             services_in_file = file_client_data['C'].value_counts().to_dict()
                             timeline_summary.append({
@@ -1433,18 +1437,21 @@ elif page == "Reports":
                                 'Services': ', '.join([f"{service} ({count})" for service, count in services_in_file.items()]),
                                 'Employee(s)': ', '.join(file_client_data['B'].unique())
                             })
-                    
+
                     if timeline_summary:
                         timeline_df = pd.DataFrame(timeline_summary)
                         st.markdown(f"**Service Timeline for {selected_timeline_client}:**")
                         st.dataframe(timeline_df, use_container_width=True)
-                        
+
                         # Service frequency over time
                         st.markdown("**Service Trends:**")
                         service_trend_data = {}
                         for file_result in st.session_state.batch_results:
                             filename = file_result['filename']
-                            file_client_data = client_timeline_data[client_timeline_data.get('source_file', '') == filename]
+                            if has_source_col:
+                                file_client_data = client_timeline_data[client_timeline_data['source_file'] == filename]
+                            else:
+                                file_client_data = pd.DataFrame()
                             
                             for service in file_client_data['C'].unique():
                                 if service not in service_trend_data:
@@ -1507,13 +1514,8 @@ elif page == "Reports":
                 if hasattr(st.session_state, 'fee_calculator'):
                     service_rates = st.session_state.fee_calculator.get_service_rates()
                     for service, count in services_breakdown.items():
-                        rate_data = service_rates.get(service, {})
-                        if isinstance(rate_data, dict):
-                            rate = rate_data.get('rate', 0)
-                        else:
-                            rate = rate_data if rate_data else 0
-                        billing_potential += count * rate
-                
+                        billing_potential += count * extract_service_rate(service_rates.get(service, 0))
+
                 employee_detailed_analysis.append({
                     'Employee': employee,
                     'Total_Visits': total_visits,
@@ -1523,7 +1525,7 @@ elif page == "Reports":
                     'Avg_Visits_Per_Client': round(total_visits / unique_clients, 2) if unique_clients > 0 else 0,
                     'Services_Breakdown': services_breakdown
                 })
-            
+
             # Create employee performance DataFrame
             employee_perf_df = pd.DataFrame(employee_detailed_analysis)
             employee_perf_df = employee_perf_df.sort_values('Total_Visits', ascending=False)
@@ -1664,12 +1666,7 @@ elif page == "Reports":
                         if hasattr(st.session_state, 'fee_calculator'):
                             service_rates = st.session_state.fee_calculator.get_service_rates()
                             for service, count in services_breakdown.items():
-                                rate_data = service_rates.get(service, {})
-                                if isinstance(rate_data, dict):
-                                    rate = rate_data.get('rate', 0)
-                                else:
-                                    rate = rate_data if rate_data else 0
-                                billing_potential += count * rate
+                                billing_potential += count * extract_service_rate(service_rates.get(service, 0))
                         
                         employee_detailed_analysis.append({
                             'Employee': employee,
@@ -1887,13 +1884,13 @@ elif page == "Billing":
         all_service_types = db_service.get_all_service_types()
         # Convert ServiceType objects to dictionaries for easier access
         service_rates = {
-            st.name: {
-                'rate': st.default_rate,
-                'billing_method': st.billing_method,
-                'unit': st.unit_type,
-                'is_medical': st.is_medical
-            } 
-            for st in all_service_types
+            svc.name: {
+                'rate': svc.default_rate,
+                'billing_method': svc.billing_method,
+                'unit': svc.unit_type,
+                'is_medical': svc.is_medical
+            }
+            for svc in all_service_types
         }
         
         # Combine electronic and manual data for billing
@@ -2026,8 +2023,7 @@ elif page == "Billing":
                         caregivers = row['caregiver_name']
                         
                         # Get rate from database service type
-                        service_type_data = service_rates.get(service, {})
-                        rate = service_type_data.get('rate', 0) if service_type_data else 0
+                        rate = extract_service_rate(service_rates.get(service, {}))
                         service_total = visits * rate
                         total_client_cost += service_total
                         
@@ -2047,7 +2043,7 @@ elif page == "Billing":
                         st.dataframe(billing_df_display, use_container_width=True)
                         
                         # Display total cost
-                        st.metric("**Total Bill for Client**", format_currency(total_client_cost))
+                        st.metric("Total Bill for Client", format_currency(total_client_cost))
                         
                         # Show detailed entries for this client
                         st.markdown("**Individual Entries:**")
@@ -2106,8 +2102,7 @@ elif page == "Billing":
                         service = row['service_type']
                         visits = row['visit_count']
                         # Get rate from database service type
-                        service_type_data = service_rates.get(service, {})
-                        rate = service_type_data.get('rate', 0) if service_type_data else 0
+                        rate = extract_service_rate(service_rates.get(service, {}))
                         total_cost += visits * rate
                     
                     client_totals.append({
@@ -2862,12 +2857,7 @@ elif page == "Service Fee Configuration":
         updated_rates = {}
         
         for service in services:
-            rate_data = current_rates.get(service, 0.0)
-            # Extract actual rate value from structured data
-            if isinstance(rate_data, dict):
-                current_rate = rate_data.get('rate', 0.0)
-            else:
-                current_rate = rate_data if rate_data else 0.0
+            current_rate = extract_service_rate(current_rates.get(service, 0.0))
             
             new_rate = st.number_input(
                 f"Rate for '{service}'",
@@ -2911,7 +2901,7 @@ elif page == "Service Fee Configuration":
                 client_service_details = []
                 
                 for service, count in client_services.items():
-                    rate = current_rates.get(service, 0)
+                    rate = extract_service_rate(current_rates.get(service, 0))
                     service_total = count * rate
                     client_total += service_total
                     
@@ -3501,9 +3491,9 @@ elif page == "Export Data":
                         'unique_clients': len(analysis['client_analysis']),
                         'unique_employees': len(analysis['employee_analysis']),
                         'unique_services': len(analysis['service_analysis']),
-                        'total_client_visits': sum(analysis['client_analysis'].values()) if isinstance(analysis['client_analysis'], dict) else analysis['client_analysis']['count'].sum(),
-                        'total_employee_visits': sum(analysis['employee_analysis'].values()) if isinstance(analysis['employee_analysis'], dict) else analysis['employee_analysis']['count'].sum(),
-                        'total_service_instances': sum(analysis['service_analysis'].values()) if isinstance(analysis['service_analysis'], dict) else analysis['service_analysis']['count'].sum()
+                        'total_client_visits': sum(analysis['client_analysis'].values()) if isinstance(analysis['client_analysis'], dict) else int(analysis['client_analysis']['count'].sum()),
+                        'total_employee_visits': sum(analysis['employee_analysis'].values()) if isinstance(analysis['employee_analysis'], dict) else int(analysis['employee_analysis']['count'].sum()),
+                        'total_service_instances': sum(analysis['service_analysis'].values()) if isinstance(analysis['service_analysis'], dict) else int(analysis['service_analysis']['count'].sum())
                     })
                 
                 historical_df = pd.DataFrame(historical_summary)

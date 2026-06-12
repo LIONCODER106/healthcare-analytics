@@ -4,7 +4,7 @@ Supports MySQL, PostgreSQL, and SQLite
 """
 import os
 import bcrypt
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -115,6 +115,7 @@ class PeriodOverride(Base):
     
     # Relationships
     client = relationship("Client", back_populates="period_overrides")
+    service_type = relationship("ServiceType")
 
 
 class ConfigHistory(Base):
@@ -273,7 +274,7 @@ def test_connection():
     """Test database connection"""
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         print("✅ Database connection successful")
         return True

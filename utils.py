@@ -88,3 +88,9 @@ def get_top_n_percent(df: pd.DataFrame, column: str, n_percent: float = 0.1) -> 
     threshold = df[column].quantile(1 - n_percent)
     filtered_df = df[df[column] >= threshold]
     return filtered_df
+
+def extract_service_rate(rate_data) -> float:
+    """Extract numeric rate from either a structured dict or a plain number."""
+    if isinstance(rate_data, dict):
+        return float(rate_data.get('rate', 0.0))
+    return float(rate_data) if rate_data else 0.0
