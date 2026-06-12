@@ -136,17 +136,18 @@ class ConfigHistory(Base):
 class ManualEntry(Base):
     """Manual entries for paper-based records"""
     __tablename__ = 'manual_entries'
-    
+
     id = Column(Integer, primary_key=True, index=True)
     client_name = Column(String(255), nullable=False, index=True)
     caregiver_name = Column(String(255), nullable=False)
-    service_date = Column(DateTime, nullable=False)
     service_type = Column(String(255), nullable=False)
-    hours = Column(Float, nullable=False)
+    visit_count = Column(Integer, nullable=False, default=1)
+    start_date = Column(String(20), nullable=True)
+    end_date = Column(String(20), nullable=True)
     notes = Column(Text, nullable=True)
-    entry_date = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
-    
+
     # Relationship
     user = relationship("User", back_populates="manual_entries")
 

@@ -257,24 +257,26 @@ class DatabaseService:
     
     # ===== MANUAL ENTRY OPERATIONS =====
     
-    def create_manual_entry(self, client_name: str, caregiver_name: str, 
-                           service_date: datetime, service_type: str,
-                           hours: float, notes: str = None) -> ManualEntry:
+    def create_manual_entry(self, client_name: str, caregiver_name: str,
+                           service_type: str, visit_count: int = 1,
+                           start_date: str = None, end_date: str = None,
+                           notes: str = None) -> ManualEntry:
         """Create a new manual entry and ensure client exists in Client table"""
         db = self.get_session()
-        
+
         # Ensure client exists in Client table
         client = self.get_client_by_name(client_name)
         if not client:
-            client = self.create_client(client_name, notes=f"Auto-created from manual entry")
-        
+            client = self.create_client(client_name, notes="Auto-created from manual entry")
+
         # Create manual entry
         entry = ManualEntry(
             client_name=client_name,
             caregiver_name=caregiver_name,
-            service_date=service_date,
             service_type=service_type,
-            hours=hours,
+            visit_count=visit_count,
+            start_date=start_date,
+            end_date=end_date,
             notes=notes
         )
         db.add(entry)
@@ -285,7 +287,7 @@ class DatabaseService:
     def get_all_manual_entries(self) -> List[ManualEntry]:
         """Get all manual entries"""
         db = self.get_session()
-        return db.query(ManualEntry).order_by(ManualEntry.entry_date.desc()).all()
+        return db.query(ManualEntry).order_by(ManualEntry.created_at.desc()).all()
     
     def get_manual_entries_by_client(self, client_name: str) -> List[ManualEntry]:
         """Get manual entries for a specific client"""
